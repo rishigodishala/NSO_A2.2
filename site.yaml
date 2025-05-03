@@ -55,6 +55,18 @@
         mode: "0644"
       become: true
 
+    - name: Fix SSH configuration for Ciphers
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#Ciphers'
+        line: 'Ciphers aes128-ctr,aes192-ctr,aes256-ctr'
+      become: yes
+
+    - name: Disable SSH Host Key Checking
+      ansible.builtin.shell:
+        cmd: echo "Host *\n    StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+      become: true
+
     - name: Get IP addresses of webservers
       set_fact:
         webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
