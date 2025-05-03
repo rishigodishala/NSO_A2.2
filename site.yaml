@@ -1,0 +1,81 @@
+- hosts: all
+  gather_facts: true
+  tasks:
+    - name: Update apt cache and install required packages
+      apt:
+        update_cache: true
+        name:
+          - haproxy
+          - python3
+          - python3-pip
+          - python3-venv
+          - gunicorn
+        state: latest
+      become: true
+
+    - name: Install Flask
+      pip:
+        name: flask
+        state: latest
+        executable: pip3
+      become: true
+
+    - name: Copy Flask app to remote server
+      copy:
+        src: application2.py
+        dest: /home/ubuntu/application2.py
+        owner: ubuntu
+        mode: "0755"
+      become: true
+
+    - name: Running Flask application
+      shell: gunicorn -w 2 -D -b 0.0.0.0:8080 application2:app
+      become: true
+      async: 30
+      poll: 0
+
+- hosts: HAproxy
+  become: true
+  tasks:
+    - name: Copy SSH config file to HAProxy server
+      copy:
+        src: ssh_config
+        dest: /home/ubuntu/.ssh/ssh_config
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+      become: true
+
+    - name: Ensure HAProxy has correct permissions for SSH config
+      file:
+        path: /home/ubuntu/.ssh/ssh_config
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+      become: true
+    - name: Get IP addresses of webservers
+      set_fact:
+        webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
+      run_once: true
+
+    - name: Configure HAproxy
+      template:
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      become: true
+      vars:
+        webservers_ips: "{{ webservers_ips }}"
+
+    - name: Restart HAproxy and ensure it's running
+      service:
+        name: haproxy
+        state: restarted
+      become: true
+      ignore_errors: true
+
+    - name: Wait for HAproxy to start
+      wait_for:
+        port: 80
+        delay: 10
+        timeout: 60
+
