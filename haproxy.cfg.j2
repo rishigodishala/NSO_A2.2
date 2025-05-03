@@ -19,6 +19,6 @@ frontend http_front
 
 backend http_back
 {% for ip in webservers_ips %}
-    server webserver{{ loop.index }} {{ ip }}:8211 check
+    server webserver{{ loop.index }} {{ ip }}:5000 check
 {% endfor %}
 

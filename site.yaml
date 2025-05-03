@@ -36,7 +36,7 @@
         mode: '0755'
 
     - name: Run Flask app using Gunicorn
-      shell: nohup gunicorn -w 2 -b 0.0.0.0:8211 app:app &
+      shell: nohup gunicorn -w 2 -b 0.0.0.0:5000 app:app &
       args:
         chdir: /home/ubuntu/flask-app
       async: 30
