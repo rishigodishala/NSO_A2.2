@@ -43,6 +43,8 @@
           User=ubuntu
           WorkingDirectory=/home/ubuntu/flask-app
           ExecStart=/usr/bin/gunicorn -w 2 -b 0.0.0.0:5000 app:app
+          Environment=PYTHONUNBUFFERED=1
+          Restart=always
 
           [Install]
           WantedBy=multi-user.target
@@ -56,4 +58,31 @@
         name: flaskapp.service
         enabled: yes
         state: restarted
+
+- hosts: HAproxy
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Get IP addresses of webservers
+      set_fact:
+        webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
+      run_once: true
+
+    - name: Configure HAProxy using template
+      template:
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      vars:
+        webservers_ips: "{{ webservers_ips }}"
+
+    - name: Restart HAProxy
+      service:
+        name: haproxy
+        state: restarted
+
+    - name: Wait for HAProxy to start
+      wait_for:
+        port: 80
+        delay: 10
+        timeout: 60
 
