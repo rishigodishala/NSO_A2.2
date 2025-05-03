@@ -1,4 +1,4 @@
-- hosts: webservers
+- hosts: all
   gather_facts: true
   tasks:
     - name: Update apt cache and install required packages
