@@ -37,8 +37,6 @@ Before running this playbook, ensure the following:
 5.ssh_config
   This file have all the IPs of the servers and route to reach the webservers
 
-7.ansible.cfg 
-  This file have the default configurations to be used bt the ansible playbook
 
 All the files should be in same directory
 -------------------------------------------------------------
