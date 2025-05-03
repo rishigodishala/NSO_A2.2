@@ -30,13 +30,11 @@ Before running this playbook, ensure the following:
    - Web servers (under `[webservers]`)
    - HAProxy server (under `[HAproxy]`)
 
-4. private_key
-   It have the key to access the servers 
 
-5.site.yaml
+4.site.yaml
    This is the yaml script to perform tasks on remote servers
 
-6.ssh_config
+5.ssh_config
   This file have all the IPs of the servers and route to reach the webservers
 
 7.ansible.cfg 
