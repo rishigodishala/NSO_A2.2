@@ -1,3 +1,4 @@
+---
 - hosts: all
   gather_facts: true
   tasks:
@@ -53,6 +54,7 @@
         group: ubuntu
         mode: "0644"
       become: true
+
     - name: Get IP addresses of webservers
       set_fact:
         webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
