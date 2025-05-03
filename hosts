@@ -10,5 +10,5 @@ devC
  
 [all:vars]  
 ansible_user=ubuntu
-ansible_ssh_common_args='-F ssh_config'  
+  
 ##REMOVED sshkey entry, handled by external SSH config file ## 

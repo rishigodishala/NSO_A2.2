@@ -1,3 +1,5 @@
+---
+
 - hosts: all
   gather_facts: true
   become: true
@@ -19,17 +21,24 @@
         state: latest
         executable: pip3
 
-    - name: Copy Flask app to remote server
+    - name: Create app directory
+      file:
+        path: /home/ubuntu/flask-app
+        state: directory
+        owner: ubuntu
+        mode: '0755'
+
+    - name: Copy Flask app to webservers
       copy:
         src: application2.py
-        dest: /home/ubuntu/application2.py
+        dest: /home/ubuntu/flask-app/app.py
         owner: ubuntu
-        mode: "0755"
+        mode: '0755'
 
-    - name: Run Flask application via Gunicorn
-      shell: nohup gunicorn -w 2 -b 0.0.0.0:8211 application2:app &
+    - name: Run Flask app using Gunicorn
+      shell: nohup gunicorn -w 2 -b 0.0.0.0:8211 app:app &
       args:
-        chdir: /home/ubuntu
+        chdir: /home/ubuntu/flask-app
       async: 30
       poll: 0
 
@@ -37,14 +46,6 @@
   gather_facts: true
   become: true
   tasks:
-    - name: Copy SSH config file to HAProxy server
-      copy:
-        src: ssh_config
-        dest: /home/ubuntu/.ssh/ssh_config
-        owner: ubuntu
-        group: ubuntu
-        mode: "0644"
-
     - name: Get IP addresses of webservers
       set_fact:
         webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
@@ -57,7 +58,7 @@
       vars:
         webservers_ips: "{{ webservers_ips }}"
 
-    - name: Restart HAProxy and ensure it's running
+    - name: Restart HAProxy
       service:
         name: haproxy
         state: restarted
