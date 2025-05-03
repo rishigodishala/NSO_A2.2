@@ -1,4 +1,4 @@
-- hosts: webservers
+ø- hosts: webservers
   become: true
   gather_facts: true
   tasks:
@@ -8,14 +8,9 @@
         name:
           - python3
           - python3-pip
-          - python3-venv
           - gunicorn
+          - flask
         state: latest
-
-    - name: Install Flask
-      pip:
-        name: flask
-        executable: pip3
 
     - name: Create Flask app directory
       file:
@@ -43,7 +38,6 @@
           User=ubuntu
           WorkingDirectory=/home/ubuntu/flask-app
           ExecStart=/usr/bin/gunicorn -w 2 -b 0.0.0.0:5000 app:app
-          Environment=PYTHONUNBUFFERED=1
           Restart=always
 
           [Install]

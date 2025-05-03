@@ -1,18 +1,3 @@
-global
-    log /dev/log    local0
-    log /dev/log    local1 notice
-    daemon
-    maxconn 2048
-
-defaults
-    log     global
-    mode    http
-    option  httplog
-    option  dontlognull
-    timeout connect 5000
-    timeout client  50000
-    timeout server  50000
-
 frontend http_front
     bind *:80
     default_backend http_back
