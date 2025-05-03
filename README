@@ -1,18 +1,74 @@
-#Simple flask services/applications for various assignments.
-# 
-# main.py: Online calculator, supports only 'add'.
-# application2.py: Replies with a string containing the Time and hostname.
-# assignment2.py: Replies with an HTML formatted string containing the Time and hostname.
+ Deploying Flask App Behind HAProxy using Ansible
 
-#export FLASK_APP=<filename>
-#export FLASK_RUN_HOST=<localhost|0.0.0.0>
-#export FLASK_RUN_PORT=8210
+ Overview
+--------------------------------------------------------------
+This Ansible playbook is designed to automate the deployment of a Flask application behind an HAProxy load balancer. The setup includes multiple backend web servers running a simple Flask app served by Gunicorn, with HAProxy distributing incoming traffic across these servers.
 
+-------------------------------------------------------------
 
+ Prerequisites
+-------------------------------------------------------------
+Before running this playbook, ensure the following:
 
-Usage Example:
-export FLASK_APP=main.py
-export FLASK_RUN_HOST=localhost
-export FLASK_RUN_PORT=8210
-flask run
+- Ansible is installed on your local control machine.
+- SSH access is configured to all target hosts using SSH key-based authentication.
+- The Flask application file (`application2.py`) is available in the current working directory.
+- The HAProxy configuration template (`haproxy.cfg.j2`) is present in the `templates/` directory or root directory.
 
+--------------------------------------------------------------
+
+ Setup Instructions
+
+1. Flask App File  
+   Place `application2.py` (the main Flask application) in your current working directory.
+
+2. HAProxy   
+   Ensure the Jinja2 template file `haproxy.cfg.j2` exists and contains valid HAProxy configuration. You may customize this file based on your backend server IPs and ports.
+
+3. Inventory File (`hosts`)
+   Update your `hosts` file with the appropriate hostnames or IP addresses for:
+   - Web servers (under `[webservers]`)
+   - HAProxy server (under `[HAproxy]`)
+
+-------------------------------------------------------------
+
+ Usage
+
+Run the Ansible playbook with the following command:
+
+```bash
+ansible-playbook -i hosts site.yaml
+
+This command will:
+
+Set up Python 3 and Flask dependencies on web servers
+Deploy and start the Flask application using Gunicorn
+Install and configure HAProxy with your template
+Start and validate the HAProxy service
+
+--------------------------------------------------------------
+Playbook Description
+
+1. Flask Application Deployment (Group: webservers)
+Tasks include:
+
+Updating package cache using apt
+Installing Python 3, pip3, and virtualenv
+Installing Flask and Gunicorn via pip
+Copying application2.py to each web server
+Launching the Flask app using Gunicorn as a background service
+
+2. HAProxy Load Balancer Setup (Group: HAproxy)
+Tasks include:
+
+Updating package cache
+Installing HAProxy
+Generating haproxy.cfg from Jinja2 template
+Restarting the HAProxy service
+
+-------------------------------------------------------------
+Notes 
+
+You can modify the haproxy.cfg.j2 template to fine-tune backend server settings, balancing algorithms, ports, etc.
+Ensure your SSH keys are properly configured for passwordless access.
+If using a Bastion host, configure your ssh_config file accordingly with ProxyJump or use the ansible_ssh_common_args in your inventory.
