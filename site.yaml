@@ -29,7 +29,7 @@
       become: true
 
     - name: Running Flask application
-      shell: gunicorn -w 2 -D -b 0.0.0.0:8080 application2:app
+      shell: gunicorn -w 2 -D -b 0.0.0.0:8211 application2:app
       become: true
       async: 30
       poll: 0
