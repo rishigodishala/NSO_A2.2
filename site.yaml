@@ -1,6 +1,6 @@
----
 - hosts: all
   gather_facts: true
+  become: true
   tasks:
     - name: Update apt cache and install required packages
       apt:
@@ -12,14 +12,12 @@
           - python3-venv
           - gunicorn
         state: latest
-      become: true
 
     - name: Install Flask
       pip:
         name: flask
         state: latest
         executable: pip3
-      become: true
 
     - name: Copy Flask app to remote server
       copy:
@@ -27,15 +25,16 @@
         dest: /home/ubuntu/application2.py
         owner: ubuntu
         mode: "0755"
-      become: true
 
-    - name: Running Flask application
-      shell: gunicorn -w 2 -D -b 0.0.0.0:8211 application2:app
-      become: true
+    - name: Run Flask application via Gunicorn
+      shell: nohup gunicorn -w 2 -b 0.0.0.0:8211 application2:app &
+      args:
+        chdir: /home/ubuntu
       async: 30
       poll: 0
 
 - hosts: HAproxy
+  gather_facts: true
   become: true
   tasks:
     - name: Copy SSH config file to HAProxy server
@@ -45,49 +44,25 @@
         owner: ubuntu
         group: ubuntu
         mode: "0644"
-      become: true
-
-    - name: Ensure HAProxy has correct permissions for SSH config
-      file:
-        path: /home/ubuntu/.ssh/ssh_config
-        owner: ubuntu
-        group: ubuntu
-        mode: "0644"
-      become: true
-
-    - name: Fix SSH configuration for Ciphers
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#Ciphers'
-        line: 'Ciphers aes128-ctr,aes192-ctr,aes256-ctr'
-      become: yes
-
-    - name: Disable SSH Host Key Checking
-      ansible.builtin.shell:
-        cmd: echo "Host *\n    StrictHostKeyChecking no" >> /etc/ssh/ssh_config
-      become: true
 
     - name: Get IP addresses of webservers
       set_fact:
         webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
       run_once: true
 
-    - name: Configure HAproxy
+    - name: Configure HAProxy using template
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-      become: true
       vars:
         webservers_ips: "{{ webservers_ips }}"
 
-    - name: Restart HAproxy and ensure it's running
+    - name: Restart HAProxy and ensure it's running
       service:
         name: haproxy
         state: restarted
-      become: true
-      ignore_errors: true
 
-    - name: Wait for HAproxy to start
+    - name: Wait for HAProxy to start
       wait_for:
         port: 80
         delay: 10
