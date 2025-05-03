@@ -1,14 +1,11 @@
----
-
-- hosts: all
-  gather_facts: true
+- hosts: webservers
   become: true
+  gather_facts: true
   tasks:
-    - name: Update apt cache and install required packages
+    - name: Install required packages
       apt:
         update_cache: true
         name:
-          - haproxy
           - python3
           - python3-pip
           - python3-venv
@@ -18,54 +15,45 @@
     - name: Install Flask
       pip:
         name: flask
-        state: latest
         executable: pip3
 
-    - name: Create app directory
+    - name: Create Flask app directory
       file:
         path: /home/ubuntu/flask-app
         state: directory
         owner: ubuntu
         mode: '0755'
 
-    - name: Copy Flask app to webservers
+    - name: Copy Flask app
       copy:
         src: application2.py
         dest: /home/ubuntu/flask-app/app.py
         owner: ubuntu
         mode: '0755'
 
-    - name: Run Flask app using Gunicorn
-      shell: nohup gunicorn -w 2 -b 0.0.0.0:5000 app:app &
-      args:
-        chdir: /home/ubuntu/flask-app
-      async: 30
-      poll: 0
+    - name: Create systemd service for Gunicorn
+      copy:
+        dest: /etc/systemd/system/flaskapp.service
+        content: |
+          [Unit]
+          Description=Gunicorn instance to serve Flask app
+          After=network.target
 
-- hosts: HAproxy
-  gather_facts: true
-  become: true
-  tasks:
-    - name: Get IP addresses of webservers
-      set_fact:
-        webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
-      run_once: true
+          [Service]
+          User=ubuntu
+          WorkingDirectory=/home/ubuntu/flask-app
+          ExecStart=/usr/bin/gunicorn -w 2 -b 0.0.0.0:5000 app:app
 
-    - name: Configure HAProxy using template
-      template:
-        src: haproxy.cfg.j2
-        dest: /etc/haproxy/haproxy.cfg
-      vars:
-        webservers_ips: "{{ webservers_ips }}"
+          [Install]
+          WantedBy=multi-user.target
 
-    - name: Restart HAProxy
-      service:
-        name: haproxy
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Gunicorn service
+      systemd:
+        name: flaskapp.service
+        enabled: yes
         state: restarted
-        
-    - name: Wait for HAProxy to start
-      wait_for:
-        port: 80
-        delay: 10
-        timeout: 60
 
