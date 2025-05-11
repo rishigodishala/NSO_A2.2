@@ -1,88 +1,81 @@
+---
+- hosts: all
+  gather_facts: true
+
 - hosts: webservers
   become: true
-  gather_facts: true
+  become_method: sudo
+  gather_facts: yes
   tasks:
-    - name: Install required packages
+    - name: apt update
       apt:
-        update_cache: true
+        update_cache: yes
+
+    - name: Install python3, pip3
+      apt:
         name:
           - python3
           - python3-pip
-          - python3-venv
-          - gunicorn
+        update_cache: yes
+
+    - name: Install flask
+      pip:
+        executable: pip3
+        name: flask
         state: latest
 
-    - name: Install Flask
-      pip:
-        name: flask
-        executable: pip3
+    - name: Install gunicorn
+      apt:
+        name: gunicorn
 
-    - name: Create Flask app directory
-      file:
-        path: /home/ubuntu/flask-app
-        state: directory
-        owner: ubuntu
-        mode: '0755'
-
-    - name: Copy Flask app
+    - name: Copy Flask app to remote server
       copy:
         src: application2.py
-        dest: /home/ubuntu/flask-app/app.py
+        dest: /home/ubuntu/application2.py
         owner: ubuntu
-        mode: '0755'
+        mode: "0644"
 
-    - name: Create systemd service for Gunicorn
+    - name: Run Flask application with Gunicorn in background
+      shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
+      args:
+        chdir: /home/ubuntu
+
+    - name: Copy UDP app to remote server
       copy:
-        dest: /etc/systemd/system/flaskapp.service
-        content: |
-          [Unit]
-          Description=Gunicorn instance to serve Flask app
-          After=network.target
+        src: udp_app.py
+        dest: /home/ubuntu/udp_app.py
+        owner: ubuntu
+        mode: "0755"
 
-          [Service]
-          User=ubuntu
-          WorkingDirectory=/home/ubuntu/flask-app
-          ExecStart=/usr/bin/gunicorn -w 2 -b 0.0.0.0:5000 app:app
-          Environment=PYTHONUNBUFFERED=1
-          Restart=always
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Reload systemd
-      systemd:
-        daemon_reload: yes
-
-    - name: Enable and start Gunicorn service
-      systemd:
-        name: flaskapp.service
-        enabled: yes
-        state: restarted
+    - name: Run UDP application in background
+      shell: nohup python3 /home/ubuntu/udp_app.py &
+      args:
+        executable: /bin/bash
 
 - hosts: HAproxy
   become: true
-  gather_facts: true
+  become_method: sudo
   tasks:
-    - name: Get IP addresses of webservers
-      set_fact:
-        webservers_ips: "{{ groups['webservers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
-      run_once: true
+    - name: Install HAProxy
+      apt:
+        name: haproxy
+        state: latest
 
-    - name: Configure HAProxy using template
+    - name: Configure HAProxy with TCP & UDP
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-      vars:
-        webservers_ips: "{{ webservers_ips }}"
+        validate: haproxy -c -f %s
+      notify: restart haproxy
 
-    - name: Restart HAProxy
+    - name: Verify HAProxy configuration
+      command: haproxy -c -f /etc/haproxy/haproxy.cfg
+      register: haproxy_validate
+      changed_when: false
+
+  handlers:
+    - name: restart haproxy
       service:
         name: haproxy
         state: restarted
-
-    - name: Wait for HAProxy to start
-      wait_for:
-        port: 80
-        delay: 10
-        timeout: 60
 
