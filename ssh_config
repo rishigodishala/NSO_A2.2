@@ -1,29 +1,32 @@
-Host bastionNSO
-  HostName 91.106.195.111
-  User ubuntu
-  IdentityFile ~/.ssh/cleura_key
+PasswordAuthentication no
+StrictHostKeyChecking no
 
-Host HAproxy
-  HostName 103.57.74.13
-  User ubuntu
-  IdentityFile ~/.ssh/cleura_key
-
-Host devA
-  HostName 10.0.1.23
-  User ubuntu
-  ProxyJump bastionNSO
-  IdentityFile ~/.ssh/cleura_key
+ Host bastionNSO
+      HostName 91.106.195.111
+      User ubuntu
+      IdentityFile ~/.ssh/id_rsa
 
 
-Host devB
-  HostName 10.0.1.28
-  User ubuntu
-  ProxyJump bastionNSO
-  IdentityFile ~/.ssh/cleura_key
-  
-  
-Host devC
-  HostName 10.0.1.13
-  User ubuntu
-  ProxyJump bastionNSO
-  IdentityFile ~/.ssh/cleura_key
+ Host HAproxy
+      HostName 103.57.74.13
+      User ubuntu
+      IdentityFile ~/.ssh/id_rsa
+
+
+ Host devA
+      HostName 10.0.1.22
+      User ubuntu
+      IdentityFile ~/.ssh/id_rsa
+      ProxyJump bastionNSO
+
+ Host devB
+      HostName 10.0.1.15
+      User ubuntu
+      IdentityFile ~/.ssh/id_rsa
+      ProxyJump bastionNSO
+
+ Host devC
+      HostName 10.0.1.11
+      User ubuntu
+      IdentityFile ~/.ssh/id_rsa
+      ProxyJump bastionNSO
