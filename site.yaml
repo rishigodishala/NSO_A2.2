@@ -20,14 +20,14 @@
         name: flask
         executable: pip3
 
-    - name: Copy application file
+    - name: Copy Flask application
       copy:
         src: application2.py
         dest: /home/ubuntu/application2.py
         owner: ubuntu
         mode: '0644'
 
-    - name: Start Flask app with Gunicorn
+    - name: Start Flask app using Gunicorn
       shell: |
         pkill gunicorn || true
         nohup gunicorn -w 2 -b 0.0.0.0:80 application2:app &
@@ -58,14 +58,14 @@
           - nginx
         state: present
 
-    - name: Configure HAProxy (HTTP)
+    - name: Configure HAProxy (HTTP load balancing)
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
         validate: haproxy -c -f %s
       notify: Restart HAProxy
 
-    - name: Add Nginx UDP stream block
+    - name: Add Nginx UDP load balancing for SNMP
       blockinfile:
         path: /etc/nginx/nginx.conf
         insertafter: "include /etc/nginx/modules-enabled/\\*.conf;"
@@ -95,4 +95,5 @@
         name: haproxy
         state: restarted
         enabled: yes
+
 
