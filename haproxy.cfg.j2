@@ -42,10 +42,9 @@ frontend http_front
     mode http
     default_backend backend_pool
 
-backend backend_pool
-    mode http
+backend flask_backend
     balance roundrobin
     {% for server in groups['webservers'] %}
-    server {{ server }} {{ hostvars[server]['ansible_default_ipv4']['address'] }}:80 check
+    server {{ server }} {{ hostvars[server]['ansible_default_ipv4']['address'] }}:8000 check
     {% endfor %}
 

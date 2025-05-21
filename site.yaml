@@ -1,4 +1,3 @@
----
 - name: Setup Base Config on All Hosts
   hosts: all
   gather_facts: yes
@@ -51,7 +50,7 @@
           User=ubuntu
           Group=www-data
           WorkingDirectory=/home/ubuntu
-          ExecStart=/usr/bin/gunicorn --workers 2 --bind 0.0.0.0:80 application2:app
+          ExecStart=/usr/bin/gunicorn --workers 2 --bind 0.0.0.0:8000 application2:app
 
           [Install]
           WantedBy=multi-user.target
@@ -62,6 +61,18 @@
         name: flaskapp
         enabled: yes
         state: started
+
+    - name: Pause 5 seconds to allow flaskapp to start
+      pause:
+        seconds: 5
+
+    - name: Check flaskapp status
+      shell: systemctl is-active flaskapp
+      register: flaskapp_status
+
+    - name: Debug flaskapp status
+      debug:
+        var: flaskapp_status.stdout
 
     - name: Install SNMP daemon
       apt:
@@ -85,6 +96,7 @@
         name: snmpd
         state: restarted
 
+
 - name: Configure HAProxy Host
   hosts: HAproxy
   become: yes
@@ -105,6 +117,12 @@
           - snmp
           - snmp-mibs-downloader
         state: present
+
+    - name: Disable default Nginx site to prevent port conflicts
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: restart nginx
 
     - name: Deploy HAProxy config
       template:
