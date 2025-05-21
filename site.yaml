@@ -1,99 +1,80 @@
-- name: Install and configure Flask app on dev servers
-  hosts: webservers
-  become: true
+- name: Configure all nodes
+  hosts: all
+  become: yes
   tasks:
-    - name: Update apt cache
+    - name: Update package cache
       apt:
         update_cache: yes
 
+- name: Set up Flask Web Servers
+  hosts: webservers
+  become: yes
+  tasks:
     - name: Install required packages
       apt:
         name:
           - python3
           - python3-pip
-          - gunicorn
+          - python3-venv
           - snmpd
         state: present
 
-    - name: Install Flask via pip
+    - name: Install Flask using pip
       pip:
         name: flask
         executable: pip3
 
-    - name: Copy Flask application
+    - name: Copy Flask app to server
       copy:
         src: application2.py
         dest: /home/ubuntu/application2.py
-        owner: ubuntu
-        mode: '0644'
+        mode: '0755'
 
-    - name: Start Flask app using Gunicorn
-      shell: |
-        pkill gunicorn || true
-        nohup gunicorn -w 2 -b 0.0.0.0:80 application2:app &
+    - name: Launch Flask app with Gunicorn
+      shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
       args:
         chdir: /home/ubuntu
-        executable: /bin/bash
 
-    - name: Enable and start snmpd
-      systemd:
+    - name: Configure SNMP daemon
+      template:
+        src: snmpd.conf.j2
+        dest: /etc/snmp/snmpd.conf
+
+    - name: Restart SNMPD
+      service:
         name: snmpd
-        enabled: yes
-        state: started
+        state: restarted
 
-- name: Setup HAProxy and Nginx load balancing
+- name: Configure HAProxy + NGINX Host
   hosts: HAproxy
-  become: true
-  vars:
-    udp_backends: "{{ groups['webservers'] }}"
+  become: yes
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install HAProxy and Nginx
+    - name: Install required packages
       apt:
         name:
           - haproxy
           - nginx
+          - snmp
+          - snmp-mibs-downloader
         state: present
 
-    - name: Configure HAProxy (HTTP load balancing)
+    - name: Deploy HAProxy config
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-        validate: haproxy -c -f %s
-      notify: Restart HAProxy
 
-    - name: Add Nginx UDP load balancing for SNMP
-      blockinfile:
-        path: /etc/nginx/nginx.conf
-        insertafter: "include /etc/nginx/modules-enabled/\\*.conf;"
-        block: |
-          stream {
-              upstream snmp_servers {
-              {% for host in udp_backends %}
-                  server {{ hostvars[host]['ansible_host'] | default(host) }}:161;
-              {% endfor %}
-              }
+    - name: Deploy NGINX config
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
 
-              server {
-                  listen 1611 udp;
-                  proxy_pass snmp_servers;
-              }
-          }
-
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
-        enabled: yes
-
-  handlers:
     - name: Restart HAProxy
       service:
         name: haproxy
         state: restarted
-        enabled: yes
 
+    - name: Restart NGINX
+      service:
+        name: nginx
+        state: restarted
 
