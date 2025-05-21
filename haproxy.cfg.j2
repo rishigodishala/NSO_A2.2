@@ -20,6 +20,6 @@ frontend http_front
 backend http_back
     balance roundrobin
 {% for host in groups['webservers'] %}
-    server {{ host }} {{ hostvars[host]['ansible_host'] | default(host) }}:80 check
+    server {{ host }} {{ host }}:80 check
 {% endfor %}
 
