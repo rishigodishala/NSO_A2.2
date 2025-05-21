@@ -1,3 +1,4 @@
+---
 - name: Configure all nodes
   hosts: all
   become: yes
@@ -22,6 +23,11 @@
     - name: Install Flask using pip
       pip:
         name: flask
+        executable: pip3
+
+    - name: Install Gunicorn using pip
+      pip:
+        name: gunicorn
         executable: pip3
 
     - name: Copy Flask app to server
@@ -56,23 +62,23 @@
           - nginx
           - snmp
           - snmp-mibs-downloader
-        state: present
+        state: present      
 
     - name: Deploy HAProxy config
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-
+      
     - name: Deploy NGINX config
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
-
+        
     - name: Restart HAProxy
       service:
         name: haproxy
         state: restarted
-
+        
     - name: Restart NGINX
       service:
         name: nginx
