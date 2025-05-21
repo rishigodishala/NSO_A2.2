@@ -1,15 +1,24 @@
-sysLocation    Karlskrona, Sweden
-sysContact     Admin <admin@local.domain>
+###########################################################################
+# Net-SNMP Agent Configuration
+###########################################################################
+
+# System Metadata
+sysLocation    Example Location
+sysContact     Admin <admin@example.com>
 sysServices    72
 
+# Agent Behavior
+master  agentx
 agentAddress udp:161
-master agentx
 
-view   sysview  included   .1.3.6.1.2.1.1
-view   sysview  included   .1.3.6.1.2.1.25.1
+# Access Views
+view system_view included .1.3.6.1.2.1.1
+view system_view included .1.3.6.1.2.1.25.1
 
-rocommunity public default -V sysview
-rocommunity6 public default -V sysview
+# SNMPv1/2c Access
+rocommunity public default -V system_view
+rocommunity6 public default -V system_view
 
-rouser snmpv3user authpriv -V sysview
+# SNMPv3 User
+rouser authPrivUser authpriv -V system_view
 

@@ -1,3 +1,4 @@
+user www-data;
 worker_processes auto;
 pid /run/nginx.pid;
 include /etc/nginx/modules-enabled/*.conf;
@@ -8,9 +9,9 @@ events {
 
 stream {
     upstream snmp_backend {
-    {% for host in groups['webservers'] %}
-        server {{ hostvars[host]['ansible_default_ipv4']['address'] }}:161;
-    {% endfor %}
+        {% for node in groups['webservers'] %}
+        server {{ hostvars[node]['ansible_default_ipv4']['address'] }}:161;
+        {% endfor %}
     }
 
     server {

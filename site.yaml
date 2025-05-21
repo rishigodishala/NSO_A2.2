@@ -1,86 +1,97 @@
 ---
-- name: Configure all nodes
+- name: Setup Base Config on All Hosts
   hosts: all
-  become: yes
-  tasks:
-    - name: Update package cache
-      apt:
-        update_cache: yes
+  gather_facts: yes
 
-- name: Set up Flask Web Servers
+- name: Configure Web Servers
   hosts: webservers
   become: yes
   tasks:
-    - name: Install required packages
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Python, pip, venv
       apt:
         name:
           - python3
           - python3-pip
           - python3-venv
-          - snmpd
         state: present
 
-    - name: Install Flask using pip
+    - name: Install Flask
       pip:
         name: flask
         executable: pip3
 
-    - name: Install Gunicorn using pip
-      pip:
+    - name: Install Gunicorn
+      apt:
         name: gunicorn
-        executable: pip3
+        state: present
 
-    - name: Copy Flask app to server
+    - name: Deploy Flask application
       copy:
         src: application2.py
         dest: /home/ubuntu/application2.py
+        owner: ubuntu
         mode: '0755'
 
-    - name: Launch Flask app with Gunicorn
+    - name: Run Flask app via Gunicorn
       shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
-      args:
-        chdir: /home/ubuntu
+
+    - name: Install SNMP daemon
+      apt:
+        name: snmpd
+        state: present
 
     - name: Configure SNMP daemon
       template:
         src: snmpd.conf.j2
         dest: /etc/snmp/snmpd.conf
 
-    - name: Restart SNMPD
+    - name: Restart SNMP service
       service:
         name: snmpd
         state: restarted
 
-- name: Configure HAProxy + NGINX Host
+- name: Configure HAProxy Host
   hosts: HAproxy
   become: yes
   tasks:
-    - name: Install required packages
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install HAProxy
+      apt:
+        name: haproxy
+        state: present
+
+    - name: Install Nginx, SNMP tools
       apt:
         name:
-          - haproxy
           - nginx
           - snmp
           - snmp-mibs-downloader
-        state: present      
+        state: present
 
     - name: Deploy HAProxy config
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-      
-    - name: Deploy NGINX config
+
+    - name: Deploy Nginx config
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
-        
+
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
     - name: Restart HAProxy
       service:
         name: haproxy
-        state: restarted
-        
-    - name: Restart NGINX
-      service:
-        name: nginx
         state: restarted
 
