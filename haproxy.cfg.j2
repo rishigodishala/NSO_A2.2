@@ -44,10 +44,6 @@ frontend http_front
 
 backend flask_backend
     balance roundrobin
-{% for server in groups['webservers'] | default([]) %}
-{% if hostvars[server]['ansible_default_ipv4'] is defined %}
-    server {{ server }} {{ hostvars[server]['ansible_default_ipv4']['address'] }}:8000 check
-{% else %}
-    # Skipping {{ server }} due to missing IP
-{% endif %}
+{% for host in groups['webservers'] %}
+    server {{ host }} {{ host }}:8000 check
 {% endfor %}
