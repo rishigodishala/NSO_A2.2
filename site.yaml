@@ -1,116 +1,99 @@
 ---
-- name: Setup Flask app on webservers
-  hosts: webservers
+- hosts: all
+  gather_facts: yes
+
+- hosts: webservers
   become: yes
+  become_method: sudo
   tasks:
-    - name: Install Python and pip
+    - name: Refresh apt cache on webservers
+      apt:
+        update_cache: yes
+
+    - name: Install Python3, pip and venv
       apt:
         name:
           - python3
           - python3-pip
-        update_cache: yes
+          - python3-venv
+        state: present
 
-    - name: Install Flask
+    - name: Install Flask via pip3
       pip:
+        executable: pip3
         name: flask
+        state: present
+        
+    - name: Install Gunicorn
+      apt:
+        name: gunicorn
+        state: present
 
-    - name: Copy Flask app
+    - name: Copy Flask application file
       copy:
         src: application2.py
         dest: /home/ubuntu/application2.py
+        owner: ubuntu
         mode: '0755'
+        
+    - name: Launch Flask app using Gunicorn
+      shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
 
-    - name: Setup systemd service for flask app
-      copy:
-        dest: /etc/systemd/system/flaskapp.service
-        content: |
-          [Unit]
-          Description=Flask App
-          After=network.target
-
-          [Service]
-          ExecStart=/usr/bin/python3 /home/ubuntu/application2.py
-          Restart=always
-          User=ubuntu
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Enable and start flaskapp service
-      systemd:
-        name: flaskapp
-        enabled: yes
-        state: started
-
-    - name: Install SNMPD
+    - name: Install SNMP daemon
       apt:
         name: snmpd
-        update_cache: yes
+        state: latest
 
-    - name: Deploy SNMPD config
-      copy:
+    - name: Deploy SNMP configuration
+      template:
         src: snmpd.conf.j2
         dest: /etc/snmp/snmpd.conf
-        mode: '0644'
 
-    - name: Restart SNMPD
-      systemd:
+    - name: Restart SNMP service
+      service:
         name: snmpd
         state: restarted
-        enabled: yes
 
-- name: Setup HAproxy load balancer
-  hosts: HAproxy
+- hosts: HAproxy
   become: yes
+  become_method: sudo
   tasks:
-    - name: Install HAproxy
+    - name: Refresh apt cache on HAproxy host
+      apt:
+        update_cache: yes
+        
+    - name: Install HAProxy
       apt:
         name: haproxy
-        update_cache: yes
+        state: latest
 
-    - name: Deploy HAproxy config
+    - name: Deploy HAProxy configuration
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-        mode: '0644'
 
-    - name: Restart HAproxy
-      systemd:
-        name: haproxy
-        state: restarted
-        enabled: yes
-
-    - name: Install nginx for UDP load balancing
+    - name: Install Nginx, SNMP, and MIB downloader
       apt:
-        name: nginx
-        update_cache: yes
+        name:
+          - nginx
+          - snmp
+          - snmp-mibs-downloader
+        state: latest
 
-    - name: Configure nginx for UDP SNMP
+    - name: Deploy Nginx configuration
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
-        mode: '0644'
 
-    - name: Restart nginx
-      systemd:
+    - name: Restart Nginx service
+      service:
         name: nginx
+        state: restarted  
+
+    - name: Restart HAProxy service
+      service:
+        name: haproxy
         state: restarted
-        enabled: yes
 
-- name: Add backend host entries to /etc/hosts on HAproxy
-  hosts: HAproxy
-  become: yes
-  vars:
-    backend_hosts:
-      - { name: devA, ip: "{{ hostvars['devA']['ansible_default_ipv4']['address'] }}" }
-      - { name: devB, ip: "{{ hostvars['devB']['ansible_default_ipv4']['address'] }}" }
-      - { name: devC, ip: "{{ hostvars['devC']['ansible_default_ipv4']['address'] }}" }
-  tasks:
-    - name: Ensure backend hosts in /etc/hosts
-      lineinfile:
-        path: /etc/hosts
-        regexp: "^{{ item.ip }}\\s+{{ item.name }}$"
-        line: "{{ item.ip }} {{ item.name }}"
-        state: present
-      loop: "{{ backend_hosts }}"
 
+   
