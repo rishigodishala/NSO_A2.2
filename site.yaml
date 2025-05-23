@@ -2,14 +2,14 @@
   gather_facts: yes
 
 - hosts: webservers
-  become: yes
+  become: true
   become_method: sudo
   tasks:
-    - name: Refresh apt cache on webservers
+    - name: Update apt package cache on all webservers
       apt:
         update_cache: yes
 
-    - name: Install Python3, pip and venv
+    - name: Install Python 3 environment packages
       apt:
         name:
           - python3
@@ -17,66 +17,67 @@
           - python3-venv
         state: present
 
-    - name: Install Flask via pip3
+    - name: Install Flask framework using pip3
       pip:
-        executable: pip3
         name: flask
+        executable: pip3
         state: present
 
-    - name: Install Gunicorn
+    - name: Install Gunicorn HTTP server
       apt:
         name: gunicorn
         state: present
 
-    - name: Copy Flask application file
+    - name: Transfer Flask app script to target location
       copy:
         src: application2.py
         dest: /home/ubuntu/application2.py
         owner: ubuntu
         mode: '0755'
 
-    - name: Launch Flask app using Gunicorn
-      shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
+    - name: Start Flask app with Gunicorn on port 80 as daemon with 2 workers
+      shell: >
+        gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
       args:
         chdir: /home/ubuntu
 
-    - name: Install SNMP daemon
+    - name: Install SNMP daemon package
       apt:
         name: snmpd
         state: latest
 
-    - name: Deploy SNMP configuration
+    - name: Apply SNMP daemon configuration from template
       template:
         src: snmpd.conf.j2
         dest: /etc/snmp/snmpd.conf
         mode: '0644'
 
-    - name: Restart SNMP service
+    - name: Restart and enable SNMP service
       service:
         name: snmpd
         state: restarted
-        enabled: yes
+        enabled: true
 
 - hosts: HAproxy
-  become: yes
+  become: true
   become_method: sudo
   tasks:
-    - name: Refresh apt cache on HAproxy host
+    - name: Update apt package cache on HAproxy server
       apt:
         update_cache: yes
 
-    - name: Install HAProxy
+    - name: Install HAProxy package
       apt:
         name: haproxy
         state: latest
 
-    - name: Deploy HAProxy configuration
+    - name: Configure HAProxy using template
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
         mode: '0644'
 
-    - name: Install Nginx, SNMP and MIB downloader
+    - name: Install supplementary packages: Nginx, SNMP, and MIB downloader
       apt:
         name:
           - nginx
@@ -84,38 +85,38 @@
           - snmp-mibs-downloader
         state: latest
 
-    - name: Deploy Nginx configuration
+    - name: Deploy Nginx configuration file
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
         mode: '0644'
 
-    - name: Restart Nginx service
+    - name: Restart Nginx to apply new settings
       service:
         name: nginx
         state: restarted
-        enabled: yes
+        enabled: true
 
-    - name: Restart HAProxy service
+    - name: Restart HAProxy to apply new settings
       service:
         name: haproxy
         state: restarted
-        enabled: yes
+        enabled: true
 
 - hosts: HAproxy
-  become: yes
+  become: true
   become_method: sudo
   vars:
-    backend_hosts:
-      - { name: devA, ip: "{{ hostvars['devA']['ansible_default_ipv4']['address'] }}" }
-      - { name: devB, ip: "{{ hostvars['devB']['ansible_default_ipv4']['address'] }}" }
-      - { name: devC, ip: "{{ hostvars['devC']['ansible_default_ipv4']['address'] }}" }
+    backend_servers:
+      - { hostname: devA, ip_address: "{{ hostvars['devA']['ansible_default_ipv4']['address'] }}" }
+      - { hostname: devB, ip_address: "{{ hostvars['devB']['ansible_default_ipv4']['address'] }}" }
+      - { hostname: devC, ip_address: "{{ hostvars['devC']['ansible_default_ipv4']['address'] }}" }
   tasks:
-    - name: Ensure backend hosts in /etc/hosts
+    - name: Ensure backend server entries exist in /etc/hosts
       lineinfile:
         path: /etc/hosts
-        regexp: "^{{ item.ip }}\\s+{{ item.name }}$"
-        line: "{{ item.ip }} {{ item.name }}"
+        regexp: "^{{ item.ip_address }}\\s+{{ item.hostname }}$"
+        line: "{{ item.ip_address }} {{ item.hostname }}"
         state: present
-      loop: "{{ backend_hosts }}"
+      loop: "{{ backend_servers }}"
 
