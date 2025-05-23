@@ -1,60 +1,40 @@
-- name: Setup Base Config on All Hosts
-  hosts: all
-  gather_facts: yes
-
-- name: Configure Web Servers
+---
+- name: Setup Flask app on webservers
   hosts: webservers
   become: yes
-  vars:
-    flask_app_path: /home/ubuntu/application2.py
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install Python, pip, venv
+    - name: Install Python and pip
       apt:
         name:
           - python3
           - python3-pip
-          - python3-venv
-        state: present
+        update_cache: yes
 
-    - name: Install Flask via pip
+    - name: Install Flask
       pip:
         name: flask
-        executable: pip3
 
-    - name: Install Gunicorn
-      apt:
-        name: gunicorn
-        state: present
-
-    - name: Deploy Flask application
+    - name: Copy Flask app
       copy:
         src: application2.py
-        dest: "{{ flask_app_path }}"
-        owner: ubuntu
-        group: ubuntu
+        dest: /home/ubuntu/application2.py
         mode: '0755'
 
-    - name: Create systemd service for Flask app with Gunicorn
+    - name: Setup systemd service for flask app
       copy:
         dest: /etc/systemd/system/flaskapp.service
         content: |
           [Unit]
-          Description=Gunicorn instance to serve Flask app
+          Description=Flask App
           After=network.target
 
           [Service]
+          ExecStart=/usr/bin/python3 /home/ubuntu/application2.py
+          Restart=always
           User=ubuntu
-          Group=www-data
-          WorkingDirectory=/home/ubuntu
-          ExecStart=/usr/bin/gunicorn --workers 2 --bind 0.0.0.0:8000 application2:app
 
           [Install]
           WantedBy=multi-user.target
-      notify: restart flaskapp
 
     - name: Enable and start flaskapp service
       systemd:
@@ -62,88 +42,59 @@
         enabled: yes
         state: started
 
-    - name: Pause 5 seconds to allow flaskapp to start
-      pause:
-        seconds: 5
-
-    - name: Check flaskapp status
-      shell: systemctl is-active flaskapp
-      register: flaskapp_status
-
-    - name: Debug flaskapp status
-      debug:
-        var: flaskapp_status.stdout
-
-    - name: Install SNMP daemon
+    - name: Install SNMPD
       apt:
         name: snmpd
-        state: present
+        update_cache: yes
 
-    - name: Configure SNMP daemon
-      template:
-        src: snmpd.conf.j2
+    - name: Deploy SNMPD config
+      copy:
+        src: snmpd.conf
         dest: /etc/snmp/snmpd.conf
-      notify: restart snmpd
+        mode: '0644'
 
-  handlers:
-    - name: restart flaskapp
+    - name: Restart SNMPD
       systemd:
-        name: flaskapp
-        state: restarted
-
-    - name: restart snmpd
-      service:
         name: snmpd
         state: restarted
+        enabled: yes
 
-
-- name: Configure HAProxy Host
+- name: Setup HAproxy load balancer
   hosts: HAproxy
   become: yes
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install HAProxy
+    - name: Install HAproxy
       apt:
         name: haproxy
-        state: present
+        update_cache: yes
 
-    - name: Install Nginx and SNMP tools
-      apt:
-        name:
-          - nginx
-          - snmp
-          - snmp-mibs-downloader
-        state: present
-
-    - name: Disable default Nginx site to prevent port conflicts
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-      notify: restart nginx
-
-    - name: Deploy HAProxy config
+    - name: Deploy HAproxy config
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-      notify: restart haproxy
+        mode: '0644'
 
-    - name: Deploy Nginx config
+    - name: Restart HAproxy
+      systemd:
+        name: haproxy
+        state: restarted
+        enabled: yes
+
+    - name: Install nginx for UDP load balancing
+      apt:
+        name: nginx
+        update_cache: yes
+
+    - name: Configure nginx for UDP SNMP
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
-      notify: restart nginx
+        mode: '0644'
 
-  handlers:
-    - name: restart haproxy
-      service:
-        name: haproxy
-        state: restarted
-
-    - name: restart nginx
-      service:
+    - name: Restart nginx
+      systemd:
         name: nginx
         state: restarted
+        enabled: yes
+
 
