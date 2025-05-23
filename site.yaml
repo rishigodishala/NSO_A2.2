@@ -1,4 +1,3 @@
----
 - hosts: all
   gather_facts: yes
 
@@ -23,7 +22,7 @@
         executable: pip3
         name: flask
         state: present
-        
+
     - name: Install Gunicorn
       apt:
         name: gunicorn
@@ -35,9 +34,11 @@
         dest: /home/ubuntu/application2.py
         owner: ubuntu
         mode: '0755'
-        
+
     - name: Launch Flask app using Gunicorn
       shell: gunicorn -w 2 -D -b 0.0.0.0:80 application2:app
+      args:
+        chdir: /home/ubuntu
 
     - name: Install SNMP daemon
       apt:
@@ -48,11 +49,13 @@
       template:
         src: snmpd.conf.j2
         dest: /etc/snmp/snmpd.conf
+        mode: '0644'
 
     - name: Restart SNMP service
       service:
         name: snmpd
         state: restarted
+        enabled: yes
 
 - hosts: HAproxy
   become: yes
@@ -61,7 +64,7 @@
     - name: Refresh apt cache on HAproxy host
       apt:
         update_cache: yes
-        
+
     - name: Install HAProxy
       apt:
         name: haproxy
@@ -71,8 +74,9 @@
       template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
 
-    - name: Install Nginx, SNMP, and MIB downloader
+    - name: Install Nginx, SNMP and MIB downloader
       apt:
         name:
           - nginx
@@ -84,16 +88,34 @@
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/nginx.conf
+        mode: '0644'
 
     - name: Restart Nginx service
       service:
         name: nginx
-        state: restarted  
+        state: restarted
+        enabled: yes
 
     - name: Restart HAProxy service
       service:
         name: haproxy
         state: restarted
+        enabled: yes
 
+- hosts: HAproxy
+  become: yes
+  become_method: sudo
+  vars:
+    backend_hosts:
+      - { name: devA, ip: "{{ hostvars['devA']['ansible_default_ipv4']['address'] }}" }
+      - { name: devB, ip: "{{ hostvars['devB']['ansible_default_ipv4']['address'] }}" }
+      - { name: devC, ip: "{{ hostvars['devC']['ansible_default_ipv4']['address'] }}" }
+  tasks:
+    - name: Ensure backend hosts in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^{{ item.ip }}\\s+{{ item.name }}$"
+        line: "{{ item.ip }} {{ item.name }}"
+        state: present
+      loop: "{{ backend_hosts }}"
 
-   
