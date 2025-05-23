@@ -97,4 +97,20 @@
         state: restarted
         enabled: yes
 
+- name: Add backend host entries to /etc/hosts on HAproxy
+  hosts: HAproxy
+  become: yes
+  vars:
+    backend_hosts:
+      - { name: devA, ip: "{{ hostvars['devA']['ansible_default_ipv4']['address'] }}" }
+      - { name: devB, ip: "{{ hostvars['devB']['ansible_default_ipv4']['address'] }}" }
+      - { name: devC, ip: "{{ hostvars['devC']['ansible_default_ipv4']['address'] }}" }
+  tasks:
+    - name: Ensure backend hosts in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^{{ item.ip }}\\s+{{ item.name }}$"
+        line: "{{ item.ip }} {{ item.name }}"
+        state: present
+      loop: "{{ backend_hosts }}"
 
