@@ -40,7 +40,7 @@ defaults
 frontend http_front
     bind *:80
     mode http
-    default_backend backend_pool
+    default_backend flask_backend
 
 backend flask_backend
     balance roundrobin
