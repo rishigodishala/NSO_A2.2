@@ -1,17 +1,37 @@
-#Simple flask services/applications for various assignments.
-# 
-# main.py: Online calculator, supports only 'add'.
-# application2.py: Replies with a string containing the Time and hostname.
-# assignment2.py: Replies with an HTML formatted string containing the Time and hostname.
+ NSO_A2.2 — Ansible Deployment of Flask App with HAProxy & Nginx
 
-#export FLASK_APP=<filename>
-#export FLASK_RUN_HOST=<localhost|0.0.0.0>
-#export FLASK_RUN_PORT=8210
+This project automates the deployment of a simple Flask web service across multiple servers, with HAProxy load balancing, Nginx reverse proxy, and SNMP monitoring, using Ansible.
 
+---
 
+ Project Overview
+- Webservers (`devA`, `devB`, `devC`):
+  - Run a simple Flask app (`application2.py`) via Gunicorn.
+  - Each request returns the server’s hostname, IP, and current time.
+  - Useful for testing load balancing.
 
-Usage Example:
-export FLASK_APP=main.py
-export FLASK_RUN_HOST=localhost
-export FLASK_RUN_PORT=8210
-flask run
+- HAProxy Host:
+  - Balances traffic across all webservers using **round-robin**.
+  - Config is generated dynamically from Ansible inventory.
+
+- Nginx:
+  - Acts as an additional reverse proxy on the HAProxy host.
+
+- SNMP:
+  - Installed on all hosts for monitoring.
+
+---
+
+Deployment Steps:
+ 1.Clone repository:
+ 2.Ensure you can SSH into all hosts:
+ 3.Run the playbook:
+   ansible-playbook -i hosts site.yaml
+
+ HAProxy will now distribute requests across devA, devB, and devC.
+
+Testing
+ - Access the HAProxy node’s public IP:
+   http://<HAproxy_IP>/
+ - Refresh multiple times → you should see responses rotating between devA, devB, and devC.
+
